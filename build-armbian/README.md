@@ -1,7 +1,5 @@
 # 相关文件说明
 
-查看英文说明 | [View English description](README.md)
-
 在相关目录中存储了编译 Armbian 所需的文件。
 
 ## amlogic-armbian
