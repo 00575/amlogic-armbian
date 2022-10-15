@@ -30,7 +30,7 @@ jobs:
           
       - name: 同步文件
         run: | 
-          scp -r https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/build-armbian/amlogic-armbian ./build-armbian/amlogic-armbian
+          svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/build-armbian/amlogic-armbian build-armbian/amlogic-armbian
           #svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/build-armbian/amlogic-u-boot ./build-armbian/amlogic-u-boot
           #svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/build-armbian/common-files ./build-armbian/common-files
           #svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/compile-kernel/tools ./compile-kernel/tools
