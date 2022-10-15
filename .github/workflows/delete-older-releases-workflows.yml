@@ -73,21 +73,14 @@ on:
         type: choice
         options:
           - 30
-          - 20
           - 10
-          - 9
-          - 8
           - 7
-          - 6
-          - 5
-          - 4
           - 3
-          - 2
           - 1
           - 0
 
 env:
-  TZ: America/New_York
+  TZ: Asia/Shanghai
 
 jobs:
   build:
