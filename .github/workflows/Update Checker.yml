@@ -1,0 +1,48 @@
+name: Update Checker
+
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: 00 17 * * *
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  update:
+    runs-on: ubuntu-20.04
+    
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+ 
+      - name: 设置当前的日期
+        id: date
+        run: |
+          sudo timedatectl set-timezone "$TZ"
+          echo "date=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+ 
+      - name: 设置帐户
+        run: |
+          git config --local user.name "GitHub Action" && git config --local user.email "action@github.com"
+          #git config --global user.name 'GitHub Actions' && git config --global user.email 'noreply@github.com'
+          
+      - name: 同步文件
+        run: | 
+          wget -qO build-armbian/amlogic-armbian/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/amlogic-armbian/*
+          wget -qO build-armbian/amlogic-u-boot/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/amlogic-u-boot/*
+          wget -qO build-armbian/common-files/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/common-files/*
+          wget -qO compile-kernel/tools/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/compile-kernel/tools/*
+          
+      - name: 添加文件到暂存区
+        run: git add .
+             
+      - name: 暂存区全部文件替换工作区
+        run: git checkout .
+
+      - name: 提交
+        run: git commit -am 'update-${{ env.date }}'
+
+      - name: 同步
+        run: git push
