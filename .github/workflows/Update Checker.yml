@@ -30,10 +30,10 @@ jobs:
           
       - name: 同步文件
         run: | 
-          wget -qO build-armbian/amlogic-armbian/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/amlogic-armbian/*
-          wget -qO build-armbian/amlogic-u-boot/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/amlogic-u-boot/*
-          wget -qO build-armbian/common-files/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/build-armbian/common-files/*
-          wget -qO compile-kernel/tools/ https://github.com/ophub/amlogic-s9xxx-armbian/raw/main/compile-kernel/tools/*
+          svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/build-armbian/amlogic-armbian ./build-armbian/amlogic-armbian
+          svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/build-armbian/amlogic-u-boot ./build-armbian/amlogic-u-boot
+          svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/build-armbian/common-files ./build-armbian/common-files
+          svn export https://github.com/ophub/amlogic-s9xxx-armbian/trunk/main/compile-kernel/tools ./compile-kernel/tools
           
       - name: 添加文件到暂存区
         run: git add .
