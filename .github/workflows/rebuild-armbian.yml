@@ -1,8 +1,3 @@
-#==========================================================================
-# Description: Build Armbian For Amlogic s9xxx tv box
-# Copyright (C) 2021 https://github.com/ophub/amlogic-s9xxx-armbian
-#==========================================================================
-
 name: Rebuild armbian
 
 on:
@@ -26,6 +21,7 @@ on:
           - s922x-n2
           - s922x-reva
           - s905x3
+          - s905x3-b
           - s905x2
           - s905x2-km3
           - s912
@@ -45,11 +41,12 @@ on:
           - 5.4.210_5.10.135_5.15.50
           - 5.4.210_5.10.135
           - 5.10.135_5.15.50
-          - 5.15.50_5.19.1
+          - 5.15.50_6.0.1
           - 5.4.210
           - 5.10.135
           - 5.15.50
           - 5.19.1
+          - 6.0.1
       auto_kernel:
         description: "Auto use the latest kernel."
         required: false
@@ -71,7 +68,6 @@ on:
         description: "Set armbian custom name."
         required: false
         default: ""
-
 env:
   TZ: Asia/Shanghai
 
