@@ -101,12 +101,14 @@ jobs:
           sudo timedatectl set-timezone "${TZ}"
           echo "ARMBIAN_RELEASE=${{ github.event.inputs.set_release }}" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
+          
       - name: Download source code
         id: down
         if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
         run: |
           git clone --depth 1 https://github.com/armbian/build.git
           echo "status=success" >> ${GITHUB_OUTPUT}
+          
       - name: Compile Armbian [ ${{ env.ARMBIAN_RELEASE }} ]
         id: compile
         if: ${{ steps.down.outputs.status }} == 'success' && !cancelled()
@@ -117,6 +119,7 @@ jobs:
                             BUILD_MINIMAL=no KERNEL_ONLY=no KERNEL_CONFIGURE=no CLEAN_LEVEL=make,debs COMPRESS_OUTPUTIMAGE="sha,gz"
           echo "build_tag=Armbian_Aml_${{ env.ARMBIAN_RELEASE }}_$(date +"%m.%d.%H%M")" >> ${GITHUB_OUTPUT}
           echo "status=success" >> ${GITHUB_OUTPUT}
+          
       - name: Upload Armbian image to Release
         uses: ncipollo/release-action@main
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
@@ -124,11 +127,11 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: build/output/images/*.img.gz
           allowUpdates: true
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.workflow_token }}
 
       - name: Rebuild Armbian for Amlogic s9xxx
         uses: ophub/amlogic-s9xxx-armbian@main
-        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
+        if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
           armbian_path: build/output/images/*.img.gz
@@ -139,18 +142,17 @@ jobs:
           armbian_fstype: ${{ github.event.inputs.armbian_fstype }}
           armbian_sign: ${{ github.event.inputs.armbian_sign }}
 
-      - name: Upload Armbian image to Release
+      - name: Upload Rebuild image to Release
         uses: ncipollo/release-action@main
-        if: env.PACKAGED_STATUS == 'success' && !cancelled()
+        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
         with:
-          tag: Armbian_Aml_${{ env.ARMBIAN_RELEASE }}_${{ env.PACKAGED_OUTPUTDATE }}
+          tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
           allowUpdates: true
           token: ${{ secrets.workflow_token }}
           body: |
-            This is Armbian image for Amlogic s9xxx tv box
-            * Firmware information
-            Default username: root
-            Default password: 1234
-            Install command: armbian-install
-            Update command: armbian-update
+            默认用户名：root
+            默认密码：1234
+            安装命令：armbian-install
+            更新命令：armbian-update
+            
