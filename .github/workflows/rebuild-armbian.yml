@@ -8,8 +8,8 @@ on:
         description: "Set armbian path."
         required: false
         default: ""
-      armbian_soc:
-        description: "Select Amlogic SoC."
+      armbian_board:
+        description: "Select Amlogic Board."
         required: false
         default: "s905x3_s905d_s912"
         type: choice
