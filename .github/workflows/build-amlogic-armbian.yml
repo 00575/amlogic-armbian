@@ -136,7 +136,7 @@ jobs:
           token: ${{ secrets.workflow_token }}
 
       - name: Rebuild Armbian for Amlogic s9xxx
-        uses: 00575/amlogic-armbian@main
+        uses: ophub/amlogic-s9xxx-armbian@main
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
