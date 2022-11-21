@@ -74,7 +74,7 @@ on:
         default: ""
 
 env:
-  TZ: America/New_York
+  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -133,10 +133,10 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: build/output/images/*.img.gz
           allowUpdates: true
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.workflow_token }}
 
       - name: Rebuild Armbian for Amlogic s9xxx
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: 00575/amlogic-armbian@main
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
@@ -155,6 +155,7 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
           allowUpdates: true
+          token: ${{ secrets.workflow_token }}
           body: |
             默认用户名：root
             默认密码：1234
