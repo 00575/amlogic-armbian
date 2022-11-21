@@ -1,4 +1,4 @@
-name: Build armbian
+name: Build amlogic armbian
 
 on:
   repository_dispatch:
@@ -36,6 +36,7 @@ on:
           - s905w
           - s905
           - s905l3a
+          - s905l2
       armbian_kernel:
         description: "Select kernel version."
         required: false
@@ -73,7 +74,7 @@ on:
         default: ""
 
 env:
-  TZ: Asia/Shanghai
+  TZ: America/New_York
 
 jobs:
   build:
@@ -95,16 +96,14 @@ jobs:
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "${TZ}"
-          echo "ARMBIAN_RELEASE=${{ github.event.inputs.set_release }}" >> ${GITHUB_ENV}
+          echo "ARMBIAN_RELEASE=${{ inputs.set_release }}" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
-          
       - name: Download source code
         id: down
         if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
         run: |
           git clone --depth 1 https://github.com/armbian/build.git
           echo "status=success" >> ${GITHUB_OUTPUT}
-          
       - name: Compile Armbian [ ${{ env.ARMBIAN_RELEASE }} ]
         id: compile
         if: ${{ steps.down.outputs.status }} == 'success' && !cancelled()
@@ -112,10 +111,21 @@ jobs:
           # Compile method and parameter description: https://docs.armbian.com/Developer-Guide_Build-Options
           cd build/
           sudo ./compile.sh RELEASE=${{ env.ARMBIAN_RELEASE }} BOARD=odroidn2 BRANCH=current BUILD_DESKTOP=no HOST=armbian EXPERT=yes \
-                            BUILD_MINIMAL=no KERNEL_ONLY=no KERNEL_CONFIGURE=no CLEAN_LEVEL=make,debs COMPRESS_OUTPUTIMAGE="sha,gz"
+                            BUILD_MINIMAL=no KERNEL_ONLY=no KERNEL_CONFIGURE=no CLEAN_LEVEL=make,debs COMPRESS_OUTPUTIMAGE="sha"
           echo "build_tag=Armbian_Aml_${{ env.ARMBIAN_RELEASE }}_$(date +"%m.%d.%H%M")" >> ${GITHUB_OUTPUT}
           echo "status=success" >> ${GITHUB_OUTPUT}
-          
+      - name: Clean up server space
+        if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
+        run: |
+          cd build/
+            sudo rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
+          cd output/images/
+            img_name="$(ls *.img | head -n 1)"
+            img_version="$(echo ${img_name} | grep -oE '[2-9][2-9]\.[0-9]{1,2}\.[0-9]{1,2}' | head -n 1)"
+            img_kernel="$(echo ${img_name} | grep -oE '[5-9]\.[0-9]{1,2}\.[0-9]{1,3}' | head -n 1)"
+            sudo mv -f ${img_name} Armbian_${img_version}-trunk_${img_kernel}.img
+            sudo pigz -9f *.img
+            df -hT ${PWD}
       - name: Upload Armbian image to Release
         uses: ncipollo/release-action@main
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
@@ -123,20 +133,20 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: build/output/images/*.img.gz
           allowUpdates: true
-          token: ${{ secrets.workflow_token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Rebuild Armbian for Amlogic s9xxx
-        uses: 00575/amlogic-armbian@main
+        uses: ophub/amlogic-s9xxx-armbian@main
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
           armbian_path: build/output/images/*.img.gz
-          armbian_board: ${{ github.event.inputs.armbian_board }}
-          armbian_kernel: ${{ github.event.inputs.armbian_kernel }}
-          auto_kernel: ${{ github.event.inputs.auto_kernel }}
-          armbian_size: ${{ github.event.inputs.armbian_size }}
-          armbian_fstype: ${{ github.event.inputs.armbian_fstype }}
-          armbian_sign: ${{ github.event.inputs.armbian_sign }}
+          armbian_board: ${{ inputs.armbian_board }}
+          armbian_kernel: ${{ inputs.armbian_kernel }}
+          auto_kernel: ${{ inputs.auto_kernel }}
+          armbian_size: ${{ inputs.armbian_size }}
+          armbian_fstype: ${{ inputs.armbian_fstype }}
+          armbian_sign: ${{ inputs.armbian_sign }}
 
       - name: Upload Rebuild image to Release
         uses: ncipollo/release-action@main
@@ -145,7 +155,6 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
           allowUpdates: true
-          token: ${{ secrets.workflow_token }}
           body: |
             默认用户名：root
             默认密码：1234
