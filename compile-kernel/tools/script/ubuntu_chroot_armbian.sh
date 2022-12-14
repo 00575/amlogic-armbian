@@ -5,10 +5,10 @@
 # License version 2. This program is licensed "as is" without any
 # warranty of any kind, whether express or implied.
 #
-# This file is a part of the Armbian for Amlogic TV Boxes
+# This file is a part of the Rebuild Armbian
 # https://github.com/ophub/amlogic-s9xxx-armbian
 #
-# Description: Run on Armbian, generate uInitrd
+# Description: Run on Armbian, generate uInitrd.
 # Copyright (C) 2021- https://github.com/unifreq
 # Copyright (C) 2021- https://github.com/ophub/amlogic-s9xxx-armbian
 #
@@ -43,14 +43,12 @@ chroot_generate_uinitrd() {
     echo -e "${STEPS} Generate uInitrd file..."
     #echo -e "${INFO} File status in the /boot directory before the update: \n$(ls -l .) \n"
 
-    cp -f vmlinuz-${chroot_kernel_version} zImage 2>/dev/null && sync
-
     # Generate uInitrd file directly under armbian system
     update-initramfs -c -k ${chroot_kernel_version} 2>/dev/null
 
     if [[ -f "uInitrd" ]]; then
         echo -e "${SUCCESS} The initrd.img and uInitrd file is Successfully generated."
-        mv -f uInitrd uInitrd-${chroot_kernel_version}
+        mv -f uInitrd uInitrd-${chroot_kernel_version} 2>/dev/null
         sync && sleep 3
     else
         echo -e "${WARNING} The initrd.img and uInitrd file not updated."
