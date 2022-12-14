@@ -76,7 +76,7 @@ on:
         default: ""
 
 env:
-  TZ: America/New_York
+  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -146,7 +146,7 @@ jobs:
           tag: Armbian${{ env.ARMBIAN_RELEASE }}${{ env.PACKAGED_OUTPUTDATE }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
           allowUpdates: true
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.workflow_token }}
           body: |
             This is Armbian image for Amlogic s9xxx tv box
             * Firmware information
