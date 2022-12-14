@@ -1,4 +1,4 @@
-name: Build amlogic armbian
+name: Build armbian
 
 on:
   repository_dispatch:
@@ -13,13 +13,14 @@ on:
           - jammy
           - bullseye
       armbian_board:
-        description: "Select Amlogic Board."
+        description: "Select Box Board."
         required: false
         default: "all"
         type: choice
         options:
           - all
-          - s905x3_s905d_s912
+          - s922x_s905x3_s905d_s912_s905l3a
+          - rock5b_r66s_r68s_beikeyun_l1pro
           - a311d
           - s922x
           - s922x-n2
@@ -37,20 +38,25 @@ on:
           - s905
           - s905l3a
           - s905l2
+          - rock5b
+          - r66s
+          - r68s
+          - beikeyun
+          - l1pro
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "5.10.135_5.15.50"
+        default: "5.15.80_6.0.10"
         type: choice
         options:
-          - 5.4.210_5.10.135_5.15.50
-          - 5.4.210_5.10.135
-          - 5.10.135_5.15.50
-          - 5.15.50_6.0.1
-          - 5.4.210
-          - 5.10.135
-          - 5.15.50
-          - 6.0.1
+          - 5.4.225_5.10.155_5.15.80
+          - 5.4.225_5.10.155
+          - 5.10.155_5.15.80
+          - 5.15.80_6.0.10
+          - 5.4.225
+          - 5.10.155
+          - 5.15.80
+          - 6.0.10
       auto_kernel:
         description: "Auto use the latest kernel."
         required: false
@@ -74,7 +80,7 @@ on:
         default: ""
 
 env:
-  TZ: Asia/Shanghai
+  TZ: America/New_York
 
 jobs:
   build:
@@ -91,7 +97,8 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc 2>/dev/null
-          sudo -E apt-get -qq update
+          sudo -E apt-get -qq update -y
+          sudo -E apt-get -qq full-upgrade -y
           sudo -E apt-get -qq install -y $(curl -fsSL https://is.gd/depend_ubuntu2204_armbian)
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
@@ -112,7 +119,7 @@ jobs:
           cd build/
           sudo ./compile.sh RELEASE=${{ env.ARMBIAN_RELEASE }} BOARD=odroidn2 BRANCH=current BUILD_DESKTOP=no HOST=armbian EXPERT=yes \
                             BUILD_MINIMAL=no KERNEL_ONLY=no KERNEL_CONFIGURE=no CLEAN_LEVEL=make,debs COMPRESS_OUTPUTIMAGE="sha"
-          echo "build_tag=Armbian_Aml_${{ env.ARMBIAN_RELEASE }}_$(date +"%m.%d.%H%M")" >> ${GITHUB_OUTPUT}
+          echo "build_tag=Armbian_${{ env.ARMBIAN_RELEASE }}_$(date +"%m.%d.%H%M")" >> ${GITHUB_OUTPUT}
           echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Clean up server space
         if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
@@ -133,7 +140,7 @@ jobs:
           tag: ${{ steps.compile.outputs.build_tag }}
           artifacts: build/output/images/*.img.gz
           allowUpdates: true
-          token: ${{ secrets.workflow_token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Rebuild Armbian for Amlogic s9xxx
         uses: ophub/amlogic-s9xxx-armbian@main
