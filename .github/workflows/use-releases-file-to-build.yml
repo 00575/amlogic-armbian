@@ -1,4 +1,4 @@
-name: Use Releases file to build armbian
+name: Use Releases file to rebuild armbian
 
 on:
   repository_dispatch:
@@ -12,14 +12,15 @@ on:
         options:
           - jammy
           - bullseye
-      armbian_soc:
-        description: "Select Amlogic SoC."
+      armbian_board:
+        description: "Select Box Board."
         required: false
         default: "all"
         type: choice
         options:
           - all
-          - s905x3_s905d_s912
+          - s922x_s905x3_s905d_s912_s905l3a
+          - rock5b_r66s_r68s_beikeyun_l1pro
           - a311d
           - s922x
           - s922x-n2
@@ -36,21 +37,26 @@ on:
           - s905w
           - s905
           - s905l3a
+          - s905l2
+          - rock5b
+          - r66s
+          - r68s
+          - beikeyun
+          - l1pro
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "5.10.135_5.15.50"
+        default: "5.15.80_6.0.10"
         type: choice
         options:
-          - 5.4.210_5.10.135_5.15.50
-          - 5.4.210_5.10.135
-          - 5.10.135_5.15.50
-          - 5.15.50_6.0.1
-          - 5.4.210
-          - 5.10.135
-          - 5.15.50
-          - 5.19.1
-          - 6.0.1
+          - 5.4.225_5.10.155_5.15.80
+          - 5.4.225_5.10.155
+          - 5.10.155_5.15.80
+          - 5.15.80_6.0.10
+          - 5.4.225
+          - 5.10.155
+          - 5.15.80
+          - 6.0.10
       auto_kernel:
         description: "Auto use the latest kernel."
         required: false
@@ -79,7 +85,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    if: github.event.repository.owner.id == github.event.sender.id
+    if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
     steps:
       - name: Checkout
@@ -91,50 +97,47 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc 2>/dev/null
-          sudo -E apt-get -qq update
+          sudo -E apt-get -qq update -y
+          sudo -E apt-get -qq full-upgrade -y
           sudo -E apt-get -qq install -y $(curl -fsSL https://is.gd/depend_ubuntu2204_armbian)
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "${TZ}"
-          echo "::set-output name=status::success"
-
+          echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Download Armbian from Releases
         id: down
-        if: (!cancelled())
+        if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
         run: |
           armbian_buildpath="build/output/images"
           [[ -d "${armbian_buildpath}" ]] || mkdir -p "${armbian_buildpath}"
           down_repo="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases"
-          down_path="Armbian_Aml_${{ github.event.inputs.set_release }}.*/Armbian_.*-trunk_.*.img.gz"
-
-          # down_filename: Armbian_Aml_bullseye_gnome_desktop_05.17.1924/Armbian_22.05.0-trunk_Odroidn2_bullseye_current_5.10.110.img.gz
+          down_path="Armbian_${{ inputs.set_release }}.*/Armbian_.*-trunk_.*.img.gz"
+          # down_filename: Armbian_jammy_11.18.2336/Armbian_22.11.0-trunk_5.10.70.img.gz
           down_filename="$(curl -s "${down_repo}" | grep -oE "${down_path}" | head -n 1)"
           down_file="https://github.com/${GITHUB_REPOSITORY}/releases/download/${down_filename}"
           [[ -z "${down_file}" ]] && echo "Invalid download file." && exit 1
           wget -q -P "${armbian_buildpath}" "${down_file}" && sync
           cd "${armbian_buildpath}" && gzip -df *.img.gz && sync
-
-          echo "ARMBIAN_RELEASE=${{ github.event.inputs.set_release }}" >> $GITHUB_ENV
-          echo "::set-output name=status::success"
-
+          echo "ARMBIAN_RELEASE=${{ inputs.set_release }}" >> ${GITHUB_ENV}
+          echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Rebuild Armbian [ ${{ env.ARMBIAN_RELEASE }} ]
         uses: ophub/amlogic-s9xxx-armbian@main
-        if: steps.down.outputs.status == 'success' && !cancelled()
+        if: ${{ steps.down.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
           armbian_path: build/output/images/*.img
-          armbian_soc: ${{ github.event.inputs.armbian_soc }}
-          armbian_kernel: ${{ github.event.inputs.armbian_kernel }}
-          auto_kernel: ${{ github.event.inputs.auto_kernel }}
-          armbian_size: ${{ github.event.inputs.armbian_size }}
-          armbian_fstype: ${{ github.event.inputs.armbian_fstype }}
-          armbian_sign: ${{ github.event.inputs.armbian_sign }}
+          armbian_board: ${{ inputs.armbian_board }}
+          armbian_kernel: ${{ inputs.armbian_kernel }}
+          auto_kernel: ${{ inputs.auto_kernel }}
+          armbian_size: ${{ inputs.armbian_size }}
+          armbian_fstype: ${{ inputs.armbian_fstype }}
+          armbian_sign: ${{ inputs.armbian_sign }}
 
       - name: Upload Armbian image to Release
         uses: ncipollo/release-action@main
-        if: env.PACKAGED_STATUS == 'success' && !cancelled()
+        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
         with:
-          tag: Armbian_Aml_${{ env.ARMBIAN_RELEASE }}_${{ env.PACKAGED_OUTPUTDATE }}
+          tag: Armbian_${{ env.ARMBIAN_RELEASE }}_${{ env.PACKAGED_OUTPUTDATE }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
           allowUpdates: true
           token: ${{ secrets.workflow_token }}
