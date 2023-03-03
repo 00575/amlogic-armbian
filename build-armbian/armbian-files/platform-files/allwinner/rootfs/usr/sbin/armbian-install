@@ -76,6 +76,7 @@ init_var() {
 
     # View device configuration information
     [[ -s "${ophub_release_file}" ]] || error_msg "[ ${ophub_release_file} ] file is missing!"
+    PLATFORM="$(cat "${ophub_release_file}" | grep -E "^PLATFORM" | awk -F"'" '{print $2}')"
     FDTFILE="$(cat "${ophub_release_file}" | grep -E "^FDTFILE" | awk -F"'" '{print $2}')"
     FAMILY="$(cat "${ophub_release_file}" | grep -E "^FAMILY" | awk -F"'" '{print $2}')"
     MAINLINE_UBOOT="$(cat "${ophub_release_file}" | grep -E "^MAINLINE_UBOOT" | awk -F"'" '{print $2}')"
@@ -84,6 +85,7 @@ init_var() {
     [[ -n "${FDTFILE}" && -n "${MAINLINE_UBOOT}" && -n "${BOOTLOADER_IMG}" ]] || error_msg "Config is missing in [ ${ophub_release_file} ] file."
 
     # Display device configuration information
+    echo -e "${INFO} PLATFORM: [ ${PLATFORM} ]"
     echo -e "${INFO} FDTFILE: [ ${FDTFILE} ]"
     echo -e "${INFO} FAMILY: [ ${FAMILY} ]"
     echo -e "${INFO} MAINLINE_UBOOT: [ ${MAINLINE_UBOOT} ]"
@@ -145,13 +147,13 @@ EOF
         armbianenv_rootflags="compress=zstd:6"
         armbianenv_rootdev="UUID=${ROOTFS_UUID}"
         uenv_mount_string="UUID=${ROOTFS_UUID} rootflags=compress=zstd:6 rootfstype=btrfs"
-        fstab_mount_string="discard,defaults,noatime,compress=zstd:6"
+        fstab_mount_string="defaults,noatime,compress=zstd:6"
     else
         file_system_type="ext4"
         armbianenv_rootflags="rw,errors=remount-ro"
         armbianenv_rootdev="UUID=${ROOTFS_UUID}"
         uenv_mount_string="UUID=${ROOTFS_UUID} rootflags=data=writeback rw rootfstype=ext4"
-        fstab_mount_string="discard,defaults,noatime,errors=remount-ro"
+        fstab_mount_string="defaults,noatime,nodiratime,commit=600,errors=remount-ro"
     fi
     echo -e "${INFO} Input Type ID: [ ${filetype} ]"
     echo -e "${INFO} The type of file system: [ ${file_system_type} ]"
@@ -193,11 +195,11 @@ create_partition() {
     if [[ -n "${BOOTLOADER_IMG}" && -f "${BOOTLOADER_IMG}" ]] &&
         [[ -n "${MAINLINE_UBOOT}" && -f "${MAINLINE_UBOOT}" ]]; then
         echo -e "${INFO} 01. Write bootloader: ${MAINLINE_UBOOT}"
-        dd if="${BOOTLOADER_IMG}" of="${DEV_EMMC}" conv=fsync,notrunc bs=1024 seek=8
-        dd if="${MAINLINE_UBOOT}" of="${DEV_EMMC}" conv=fsync,notrunc bs=1024 seek=40
+        dd if="${BOOTLOADER_IMG}" of="${DEV_EMMC}" conv=fsync,notrunc bs=8k seek=1
+        dd if="${MAINLINE_UBOOT}" of="${DEV_EMMC}" conv=fsync,notrunc bs=8k seek=5
     elif [[ -n "${BOOTLOADER_IMG}" && -f "${BOOTLOADER_IMG}" ]]; then
         echo -e "${INFO} 02. Write bootloader: ${BOOTLOADER_IMG}"
-        dd if="${BOOTLOADER_IMG}" of="${DEV_EMMC}" conv=fsync,notrunc bs=1024 seek=8
+        dd if="${BOOTLOADER_IMG}" of="${DEV_EMMC}" conv=fsync,notrunc bs=8k seek=1
     fi
     [[ "${?}" -eq "0" ]] || error_msg "Failed to write bootloader using [ dd ]."
 }
@@ -226,34 +228,34 @@ copy_bootfs() {
     cp -rf /boot/* ${DIR_INSTALL}
     rm -rf ${DIR_INSTALL}/'System Volume Information'
 
-    # Using the uEnv.txt scheme
-    [[ -f "${DIR_INSTALL}/uEnv.txt" ]] && {
-        echo -e "${INFO} Generate the new [ uEnv.txt ] file."
-        rm -f ${DIR_INSTALL}/uEnv.txt
-        cat >${DIR_INSTALL}/uEnv.txt <<EOF
-LINUX=/zImage
-INITRD=/uInitrd
-FDT=/dtb/allwinner/${FDTFILE}
-APPEND=root=${uenv_mount_string} console=ttyS0,115200n8 no_console_suspend consoleblank=0 fsck.fix=yes fsck.repair=yes net.ifnames=0 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1
-
-EOF
+    # Update [ /boot/uEnv.txt ] settings
+    uenv_conf_file="${DIR_INSTALL}/uEnv.txt"
+    [[ -f "${uenv_conf_file}" ]] && {
+        echo -e "${INFO} Update the [ uEnv.txt ] file."
+        BOOT_CONF="uEnv.conf"
+        sed -i "s|root=.*console=ttyS0|root=${uenv_mount_string} console=ttyS0|g" ${uenv_conf_file}
+        sed -i "s|sun50i.*.dtb|${FDTFILE}|g" ${uenv_conf_file}
     }
 
-    # Using the armbianEnv.txt scheme
-    [[ -f "${DIR_INSTALL}/armbianEnv.txt" ]] && {
-        echo -e "${INFO} Generate the new [ armbianEnv.txt ] file."
-        rm -f ${DIR_INSTALL}/armbianEnv.txt
-        cat >${DIR_INSTALL}/armbianEnv.txt <<EOF
-verbosity=1
-bootlogo=false
-fdtfile=allwinner/${FDTFILE}
-rootdev=${armbianenv_rootdev}
-rootfstype=${file_system_type}
-rootflags=${armbianenv_rootflags}
-overlay_prefix=${FAMILY}
-docker_optimizations=on
+    # Update [ /boot/armbianEnv.txt ] settings
+    armbianenv_conf_file="${DIR_INSTALL}/armbianEnv.txt"
+    [[ -f "${armbianenv_conf_file}" ]] && {
+        echo -e "${INFO} Update the [ armbianEnv.conf ] file."
+        BOOT_CONF="armbianEnv.conf"
+        sed -i "s|^fdtfile=.*|fdtfile=${PLATFORM}/${FDTFILE}|g" ${armbianenv_conf_file}
+        sed -i "s|^rootfstype=.*|rootfstype=${file_system_type}|g" ${armbianenv_conf_file}
+        sed -i "s|^rootdev=.*|rootdev=${armbianenv_rootdev}|g" ${armbianenv_conf_file}
+        sed -i "s|^rootflags.*|rootflags=${armbianenv_rootflags}|g" ${armbianenv_conf_file}
+        sed -i "s|^overlay_prefix.*|overlay_prefix=${FAMILY}|g" ${armbianenv_conf_file}
+    }
 
-EOF
+    # Update [ /boot/extlinux/extlinux.conf ] settings
+    boot_extlinux_file="${DIR_INSTALL}/extlinux/extlinux.conf"
+    [[ -f "${boot_extlinux_file}" ]] && {
+        echo -e "${INFO} Update the [ extlinux.conf ] file."
+        BOOT_CONF="extlinux.conf"
+        sed -i "s|root=.*console=ttyS0|root=${uenv_mount_string} console=ttyS0|g" ${boot_extlinux_file}
+        sed -i "s|sun50i.*.dtb|${FDTFILE}|g" ${boot_extlinux_file}
     }
 
     # Replace eMMC boot files
@@ -323,6 +325,7 @@ EOF
     echo -e "${INFO} Update the relevant parameters."
     ophub_release_file="${DIR_INSTALL}${ophub_release_file}"
     sed -i "s|^ROOTFS_TYPE=.*|ROOTFS_TYPE='${file_system_type}'|g" ${ophub_release_file}
+    sed -i "s|^BOOT_CONF=.*|BOOT_CONF='${BOOT_CONF}'|g" ${ophub_release_file}
     sed -i "s|^DISK_TYPE=.*|DISK_TYPE='emmc'|g" ${ophub_release_file}
 
     # Set interfaces macaddr
